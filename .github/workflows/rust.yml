@@ -1,0 +1,22 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Rustcfg
+      run: rustup update && rustup default nightly && rustup component add llvm-tools-preview && rustup target add x86_64-unknown-none && rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu && mkdir -p target/bootable
+    - name: Build
+      run: cargo build
