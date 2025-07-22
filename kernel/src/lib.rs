@@ -5,3 +5,4 @@ pub mod memory;
 pub mod common;
 #[macro_use]
 pub mod log;
+pub mod ramdisk;
