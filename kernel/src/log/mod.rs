@@ -1,6 +1,6 @@
 use core::fmt::Write;
 
-use crate::{log::display::{Color, FrameBufferWriter}, serial_println};
+use crate::{log::display::{Color, FrameBufferWriter}, serial_print, serial_println};
 
 pub mod display;
 pub mod font;
@@ -73,5 +73,20 @@ impl Logger {
                 fbw.write_str(" ]\n");
             }
         }
+    }
+}
+
+impl Write for Logger {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        use crate as kernel;
+        if self.log_to_serial {
+            serial_print!("{}", s);
+        }
+        if self.log_to_screen {
+            if let Some(fbw) = &mut self.frame_buffer_writer {
+                fbw.write_str(s);
+            }
+        }
+        Ok(())
     }
 }

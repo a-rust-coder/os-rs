@@ -6,9 +6,10 @@ edition = "2024"
 [build-dependencies]
 bootloader = "0.11.10"
 kernel = { path = "kernel", artifact = "bin", target = "x86_64-unknown-none" }
+test-modules = { path = "modules/test-modules", artifact = "bin", target = "x86_64-unknown-none" }
 
 [dependencies]
 ovmf-prebuilt = "0.2.2"
 
 [workspace]
-members = ["kernel", "kernel-lib", "modules/test-modules"]
+members = ["kernel", "kernel-lib", "kernel-proc-macros", "modules/test-modules"]

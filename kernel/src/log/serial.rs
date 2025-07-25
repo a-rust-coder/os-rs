@@ -14,7 +14,7 @@ pub unsafe fn inb(port: u16) -> u8 {
     val
 }
 
-pub fn serial_init() {
+pub fn init_serial() {
     unsafe {
         outb(COM1 + 1, 0x00); // Disable interrupts
         outb(COM1 + 3, 0x80); // Enable DLAB (set baud rate divisor)

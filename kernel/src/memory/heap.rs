@@ -1,15 +1,18 @@
 use core::{
     alloc::{AllocError, Allocator},
     num::NonZero,
+    ops::Deref,
     ptr::{self, NonNull},
     usize,
 };
 
-use crate as kernel;
-use crate::serial_println;
+use bootloader_api::{BootInfo, info::MemoryRegionKind};
+
+use crate::{memory::page_table::FORBID_EXECUTION, serial_println};
+use crate::{self as kernel, common::VirtAddress, memory::page_table::remap_flags};
 
 #[derive(Debug, Clone, Copy)]
-pub struct FreeListHeapAllocator(NonNull<[u8]>);
+pub struct FreeListHeapAllocator(pub NonNull<[u8]>);
 
 impl FreeListHeapAllocator {
     pub fn new(start: usize, size: usize) -> Self {
@@ -296,4 +299,48 @@ impl UnusedRegion {
             None => None,
         }
     }
+}
+
+pub fn init_heap(boot_info: &mut BootInfo) -> FreeListHeapAllocator {
+    let mut biggest_address = 0;
+    let mut biggest_size = 0;
+
+    let mut current_address = 0;
+    let mut current_size = 0;
+
+    for region in boot_info.memory_regions.deref() {
+        if region.kind == MemoryRegionKind::Usable {
+            if current_size > 0 {
+                current_size += region.end - region.start;
+            } else {
+                current_size = region.end - region.start;
+                current_address = region.start;
+            }
+        } else {
+            if current_size > biggest_size {
+                biggest_size = current_size;
+                biggest_address = current_address;
+            }
+            current_size = 0;
+            current_address = 0;
+        }
+    }
+
+    let phys_memory_offset = boot_info.physical_memory_offset.into_option().unwrap() as usize;
+
+    let heap_start = biggest_address as usize + phys_memory_offset;
+    let heap_size = 2097152;
+
+    for page in 0..heap_size / 4096 {
+        remap_flags(
+            VirtAddress(heap_start + page * 4096).canonicalize(),
+            0,
+            FORBID_EXECUTION,
+            boot_info.physical_memory_offset.into_option().unwrap() as usize,
+        );
+    }
+
+    let allocator = FreeListHeapAllocator::new(heap_start, heap_size);
+
+    allocator
 }

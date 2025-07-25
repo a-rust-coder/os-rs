@@ -5,12 +5,13 @@ use std::path::{Path, PathBuf};
 fn main() {
     let out_dir = PathBuf::from("./target/bootable/");
     let kernel = PathBuf::from(std::env::var_os("CARGO_BIN_FILE_KERNEL_kernel").unwrap());
+    let test_modules = std::env::var_os("CARGO_BIN_FILE_TEST_MODULES_test-modules").unwrap();
 
     let out = File::create("ramdisk.img").unwrap();
     let mut writer = BufWriter::new(out);
 
     let paths = vec![
-        ("./ramdisk/test.txt", "test.txt"),
+        (test_modules, "test.elf"),
     ];
     for path in paths {
         let data = fs::read(path.0).unwrap();

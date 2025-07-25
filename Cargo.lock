@@ -308,10 +308,15 @@ version = "0.1.0"
 dependencies = [
  "bootloader_api",
  "kernel-lib",
+ "kernel-proc-macros",
 ]
 
 [[package]]
 name = "kernel-lib"
+version = "0.1.0"
+
+[[package]]
+name = "kernel-proc-macros"
 version = "0.1.0"
 
 [[package]]
@@ -400,6 +405,7 @@ dependencies = [
  "bootloader",
  "kernel",
  "ovmf-prebuilt",
+ "test-modules",
 ]
 
 [[package]]
@@ -642,6 +648,10 @@ dependencies = [
 [[package]]
 name = "test-modules"
 version = "0.1.0"
+dependencies = [
+ "kernel-lib",
+ "kernel-proc-macros",
+]
 
 [[package]]
 name = "thiserror"

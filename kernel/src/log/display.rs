@@ -1,6 +1,6 @@
 use core::{fmt::Write, num::NonZero, ptr::NonNull};
 
-use bootloader_api::info::PixelFormat;
+use bootloader_api::{info::PixelFormat, BootInfo};
 
 use crate::log::font::FONT8X8_BASIC;
 
@@ -111,5 +111,23 @@ impl Write for FrameBufferWriter {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         self.write_str(s);
         Ok(())
+    }
+}
+
+pub fn init_framebuffer_writer(boot_info: &mut BootInfo) -> FrameBufferWriter {
+    let fb = boot_info.framebuffer.as_mut().unwrap();
+    let info = fb.info();
+
+    FrameBufferWriter {
+        buffer: NonNull::<[u8]>::new(fb.buffer_mut()).unwrap(),
+        width: info.width,
+        height: info.height,
+        stride: info.stride,
+        bytes_per_pixel: info.bytes_per_pixel,
+        x: 0,
+        y: 0,
+        fg_color: Color(255, 255, 255),
+        bg_color: Color(0, 0, 0),
+        color_format: info.pixel_format,
     }
 }
