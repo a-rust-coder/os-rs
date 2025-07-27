@@ -1,19 +1,21 @@
 #![no_std]
 #![no_main]
 #![feature(allocator_api, alloc_layout_extra)]
+#![allow(mutable_transmutes)]
 
-use core::{alloc::Layout, fmt::Write, mem::MaybeUninit};
+use core::{alloc::Layout, fmt::Write, mem::{transmute, MaybeUninit}, panic::PanicInfo};
 
 use alloc::{alloc::Allocator, boxed::Box, vec::Vec};
 use bootloader_api::{BootInfo, BootloaderConfig, entry_point};
+use demo_module_lib::DemoModule;
 use kernel::{
     idt::init_idt,
-    log::{Logger, display::init_framebuffer_writer, serial::init_serial},
+    log::{display::init_framebuffer_writer, serial::init_serial, Logger},
     memory::{heap::init_heap, init_global_allocator},
-    ramdisk::{SimpleInitFs, elf},
+    ramdisk::{elf, SimpleInitFs},
     serial_println,
 };
-use kernel_lib::AllocatorWrapper;
+use kernel_lib::{AllocatorWrapper, Module, ModuleWrapper};
 use kernel_proc_macros::log;
 
 extern crate alloc;
@@ -64,27 +66,28 @@ fn start(boot_info: &mut BootInfo) -> ! {
         );
         logger.log_ok("Loading ELF");
 
-        let alloc_wrap = AllocatorWrapper(MaybeUninit::new(&allocator));
+        // init GLOBAL_ALLOCATOR
+        let allocator_wrap = AllocatorWrapper(MaybeUninit::new(&allocator));
+        let glob_alloc_ptr = handle.get_symbol("GLOBAL_ALLOCATOR");
+        unsafe { *(glob_alloc_ptr as *mut AllocatorWrapper) = allocator_wrap };
 
-        let module_glob_alloc = handle.get_symbol("GLOBAL_ALLOCATOR");
-        let module_glob_alloc = module_glob_alloc as *mut AllocatorWrapper;
-        unsafe { *module_glob_alloc = alloc_wrap };
-        log!("Init module GLOBAL_ALLOCATOR");
+        // init PANIC_HANDLER
+        let panic_handler: fn(&PanicInfo) -> ! = panic_fn;
+        let panic_handler = MaybeUninit::new(panic_handler);
+        let panic_handler_ptr = handle.get_symbol("PANIC_HANDLER");
+        unsafe { *(panic_handler_ptr as *mut MaybeUninit<fn(&PanicInfo) -> ! >) = panic_handler };
 
-        let module_fn = handle.get_symbol("module");
-        let module_fn: unsafe extern "C" fn(usize, &mut dyn Write) -> Box<usize> =
-            unsafe { core::mem::transmute(module_fn) };
-        let v = unsafe { module_fn(666, &mut logger) };
-        log!("{}", v);
+        // get module
+        let module_ptr = handle.get_symbol("MODULE");
+        let module = unsafe { *(module_ptr as *mut ModuleWrapper) };
+        let module = module.0;
+        let module: &mut dyn Module = unsafe { transmute(module) };
+
+        // init module
+        let demo_module = module.init(&[], boot_info).unwrap();
+        let demo_module: &dyn DemoModule = unsafe { transmute(demo_module.interface) };
+        serial_println!("{}", demo_module.update_number(1));
     }
-
-    let mut v = Vec::new();
-
-    for i in 0..10 {
-        v.push(i);
-    }
-
-    log!("{:?}", v);
 
     loop {}
 }
@@ -93,6 +96,10 @@ entry_point!(start, config = &CONFIG);
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
+    panic_fn(info);
+}
+
+fn panic_fn(info: &PanicInfo) -> ! {
     serial_println!("{:#?}", info);
     loop {}
 }

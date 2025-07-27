@@ -1,0 +1,8 @@
+[package]
+name = "demo-module-mod"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+demo-module-lib = { path = "../lib/" }
+kernel-lib = { path = "../../../kernel-lib/" }

@@ -1,7 +1,6 @@
 [package]
-name = "kernel-lib"
+name = "demo-module-lib"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bootloader_api = "0.11.10"

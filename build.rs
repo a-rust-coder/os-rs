@@ -1,3 +1,4 @@
+use std::ffi::OsString;
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
@@ -5,12 +6,12 @@ use std::path::{Path, PathBuf};
 fn main() {
     let out_dir = PathBuf::from("./target/bootable/");
     let kernel = PathBuf::from(std::env::var_os("CARGO_BIN_FILE_KERNEL_kernel").unwrap());
-    let test_modules = std::env::var_os("CARGO_BIN_FILE_TEST_MODULES_test-modules").unwrap();
+    let test_modules = std::env::var_os("CARGO_BIN_FILE_DEMO_MODULE_MOD_demo-module-mod").unwrap();
 
     let out = File::create("ramdisk.img").unwrap();
     let mut writer = BufWriter::new(out);
 
-    let paths = vec![
+    let paths: Vec<(OsString, &str)> = vec![
         (test_modules, "test.elf"),
     ];
     for path in paths {

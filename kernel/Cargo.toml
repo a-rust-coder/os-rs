@@ -7,3 +7,4 @@ edition = "2024"
 bootloader_api = "0.11.10"
 kernel-lib = { path = "../kernel-lib/" }
 kernel-proc-macros = { path = "../kernel-proc-macros/" }
+demo-module-lib = { path = "../modules/demo-module/lib/" }

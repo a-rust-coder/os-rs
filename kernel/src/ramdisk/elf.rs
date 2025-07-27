@@ -3,7 +3,7 @@ use core::ptr::copy_nonoverlapping;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
-struct Elf64_Ehdr {
+struct Elf64Ehdr {
     e_ident: [u8; 16],
     e_type: u16,
     e_machine: u16,
@@ -22,7 +22,7 @@ struct Elf64_Ehdr {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
-struct Elf64_Phdr {
+struct Elf64Phdr {
     p_type: u32,
     p_flags: u32,
     p_offset: u64,
@@ -35,7 +35,7 @@ struct Elf64_Phdr {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
-struct Elf64_Shdr {
+struct Elf64Shdr {
     sh_name: u32,
     sh_type: u32,
     sh_flags: u64,
@@ -50,7 +50,7 @@ struct Elf64_Shdr {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
-struct Elf64_Sym {
+struct Elf64Sym {
     st_name: u32,
     st_info: u8,
     st_other: u8,
@@ -61,7 +61,7 @@ struct Elf64_Sym {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
-struct Elf64_Rela {
+struct Elf64Rela {
     r_offset: u64,
     r_info: u64,
     r_addend: i64,
@@ -87,18 +87,18 @@ unsafe fn read_struct<T: Copy>(data: &[u8], offset: usize) -> T {
 pub struct ElfHandle<'a> {
     base_addr: usize,
     strtab: &'a [u8],
-    symtab: &'static [Elf64_Sym],
+    symtab: &'static [Elf64Sym],
 }
 
 // ==== PUBLIC API ====
 
 pub fn load_elf<'a>(data: &'a [u8], base_address: usize) -> ElfHandle<'a> {
-    let ehdr: Elf64_Ehdr = unsafe { read_struct(data, 0) };
+    let ehdr: Elf64Ehdr = unsafe { read_struct(data, 0) };
 
     // Charge les segments PT_LOAD
     for i in 0..ehdr.e_phnum {
-        let offset = ehdr.e_phoff as usize + i as usize * size_of::<Elf64_Phdr>();
-        let ph: Elf64_Phdr = unsafe { read_struct(data, offset) };
+        let offset = ehdr.e_phoff as usize + i as usize * size_of::<Elf64Phdr>();
+        let ph: Elf64Phdr = unsafe { read_struct(data, offset) };
 
         if ph.p_type == 1 {
             let file_start = ph.p_offset as usize;
@@ -124,8 +124,8 @@ pub fn load_elf<'a>(data: &'a [u8], base_address: usize) -> ElfHandle<'a> {
     let mut symtab = &[][..];
     let mut strtab = &[][..];
     for i in 0..ehdr.e_shnum {
-        let off = ehdr.e_shoff as usize + i as usize * size_of::<Elf64_Shdr>();
-        let sh: Elf64_Shdr = unsafe { read_struct(data, off) };
+        let off = ehdr.e_shoff as usize + i as usize * size_of::<Elf64Shdr>();
+        let sh: Elf64Shdr = unsafe { read_struct(data, off) };
 
         const SHT_SYMTAB: u32 = 2;
         const SHT_STRTAB: u32 = 3;
@@ -134,7 +134,7 @@ pub fn load_elf<'a>(data: &'a [u8], base_address: usize) -> ElfHandle<'a> {
             let count = (sh.sh_size / sh.sh_entsize) as usize;
             symtab = unsafe {
                 core::slice::from_raw_parts(
-                    data.as_ptr().add(sh.sh_offset as usize) as *const Elf64_Sym,
+                    data.as_ptr().add(sh.sh_offset as usize) as *const Elf64Sym,
                     count,
                 )
             };
@@ -145,15 +145,15 @@ pub fn load_elf<'a>(data: &'a [u8], base_address: usize) -> ElfHandle<'a> {
 
     // Applique les relocations
     for i in 0..ehdr.e_shnum {
-        let off = ehdr.e_shoff as usize + i as usize * size_of::<Elf64_Shdr>();
-        let sh: Elf64_Shdr = unsafe { read_struct(data, off) };
+        let off = ehdr.e_shoff as usize + i as usize * size_of::<Elf64Shdr>();
+        let sh: Elf64Shdr = unsafe { read_struct(data, off) };
 
         const SHT_RELA: u32 = 4;
         if sh.sh_type == SHT_RELA {
             let rela_count = (sh.sh_size / sh.sh_entsize) as usize;
             for j in 0..rela_count {
-                let r_off = sh.sh_offset as usize + j * size_of::<Elf64_Rela>();
-                let rela: Elf64_Rela = unsafe { read_struct(data, r_off) };
+                let r_off = sh.sh_offset as usize + j * size_of::<Elf64Rela>();
+                let rela: Elf64Rela = unsafe { read_struct(data, r_off) };
 
                 let reloc_addr = (base_address + rela.r_offset as usize) as *mut u64;
 
