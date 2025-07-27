@@ -1,11 +1,13 @@
 #![no_std]
 #![no_main]
 
-use core::{mem::{transmute, ManuallyDrop, MaybeUninit}, panic::PanicInfo};
+use core::{
+    cell::{Cell, UnsafeCell}, mem::{transmute, ManuallyDrop, MaybeUninit}, panic::PanicInfo
+};
 
 use alloc::boxed::Box;
 use demo_module_lib::DemoModule;
-use kernel_lib::{AllocatorWrapper, InitOk, Module, ModuleWrapper};
+use kernel_lib::{mutex::Mutex, AllocatorWrapper, InitOk, Module, ModuleWrapper};
 
 extern crate alloc;
 
@@ -28,17 +30,19 @@ pub static INTERFACE_NAME: &str = demo_module_lib::INTERFACE_NAME;
 
 #[used]
 #[unsafe(no_mangle)]
-pub static MODULE: ModuleWrapper = ModuleWrapper(&DemoModuleMod(1));
+pub static MODULE: ModuleWrapper = ModuleWrapper(&INITIALIZER);
 
-struct DemoModuleMod(usize);
+pub static INITIALIZER: DemoModuleMod = DemoModuleMod(Mutex::new(1));
+
+struct DemoModuleMod(Mutex<usize>);
 
 impl Module for DemoModuleMod {
     fn init(
-        &mut self,
+        &self,
         _loaded_modules: &[kernel_lib::ModuleHandle],
         _boot_infos: &mut kernel_lib::BootInfo,
     ) -> Result<kernel_lib::InitOk<'_>, kernel_lib::InitErr<'_>> {
-        let b: Box<dyn DemoModule> = Box::new(DemoModuleMod(1));
+        let b: Box<dyn DemoModule> = Box::new(DemoModuleMod(Mutex::new(1)));
         let b = ManuallyDrop::new(b);
         let raw: *const dyn DemoModule = &**b;
         let raw: *mut dyn DemoModule = raw as *mut dyn DemoModule;
@@ -51,16 +55,16 @@ impl Module for DemoModuleMod {
     }
 
     fn save_state(&self) -> alloc::boxed::Box<dyn core::any::Any> {
-        Box::new(self.0)
+        Box::new(*self.0.lock())
     }
 
     fn restore_state(
-        &mut self,
+        &self,
         state: Box<dyn core::any::Any>,
     ) -> Result<(), Box<dyn core::fmt::Debug>> {
         match state.downcast::<usize>() {
             Ok(v) => {
-                self.0 = *v;
+                *self.0.lock() = *v;
                 return Ok(());
             }
             Err(_) => {
@@ -68,11 +72,13 @@ impl Module for DemoModuleMod {
             }
         }
     }
+
+    fn stop(&self) {}
 }
 
 impl DemoModule for DemoModuleMod {
     fn update_number(&self, number: usize) -> usize {
-        self.0 + number
+        *self.0.lock() + number
     }
 }
 

@@ -4,6 +4,7 @@
 extern crate alloc;
 
 pub mod allocator;
+pub mod mutex;
 
 use core::{any::Any, fmt::Debug};
 
@@ -12,14 +13,16 @@ pub use allocator::*;
 
 pub trait Module {
     fn init(
-        &mut self,
+        &self,
         loaded_modules: &[ModuleHandle],
         boot_infos: &mut BootInfo,
     ) -> Result<InitOk<'_>, InitErr<'_>>;
 
     fn save_state(&self) -> Box<dyn Any>;
 
-    fn restore_state(&mut self, state: Box<dyn Any>) -> Result<(), Box<dyn Debug>>;
+    fn restore_state(&self, state: Box<dyn Any>) -> Result<(), Box<dyn Debug>>;
+
+    fn stop(&self);
 }
 
 #[derive(Clone, Copy)]

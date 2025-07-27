@@ -1,7 +1,6 @@
 #![no_std]
 #![no_main]
 #![feature(allocator_api, alloc_layout_extra)]
-#![allow(mutable_transmutes)]
 
 use core::{alloc::Layout, fmt::Write, mem::{transmute, MaybeUninit}, panic::PanicInfo};
 
@@ -81,7 +80,6 @@ fn start(boot_info: &mut BootInfo) -> ! {
         let module_ptr = handle.get_symbol("MODULE");
         let module = unsafe { *(module_ptr as *mut ModuleWrapper) };
         let module = module.0;
-        let module: &mut dyn Module = unsafe { transmute(module) };
 
         // init module
         let demo_module = module.init(&[], boot_info).unwrap();

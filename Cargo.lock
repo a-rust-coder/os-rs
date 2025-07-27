@@ -322,6 +322,7 @@ dependencies = [
  "demo-module-lib",
  "kernel-lib",
  "kernel-proc-macros",
+ "serial-log-lib",
 ]
 
 [[package]]
@@ -595,6 +596,13 @@ dependencies = [
  "memchr",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "serial-log-lib"
+version = "0.1.0"
+dependencies = [
+ "kernel-lib",
 ]
 
 [[package]]

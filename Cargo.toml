@@ -18,4 +18,5 @@ members = [
 	"kernel-proc-macros", 
 	"modules/demo-module/lib", 
 	"modules/demo-module/mod", 
+	"modules/serial-log/lib", 
 ]

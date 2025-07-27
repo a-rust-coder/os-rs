@@ -7,3 +7,5 @@ pub mod memory;
 pub mod log;
 pub mod idt;
 pub mod ramdisk;
+
+pub mod modules;
