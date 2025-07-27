@@ -1,120 +1,88 @@
+extern crate alloc;
 
+use core::{arch::asm, mem::{transmute, ManuallyDrop}};
 
+use alloc::boxed::Box;
+use kernel_lib::{InitOk, Module, ModuleWrapper};
+use serial_log_lib::SerialLog;
 
-use core::arch::asm;
+pub static INTERFACE_NAME: &str = serial_log_lib::INTERFACE_NAME;
 
-pub const COM1: u16 = 0x3F8;
+pub static MODULE_NAME: &str = "serial-log kernel";
 
-pub unsafe fn outb(port: u16, val: u8) {
-    unsafe {
-        asm!("out dx, al", in("dx") port, in ("al") val);
-    }
-}
+pub static MODULE: ModuleWrapper = ModuleWrapper(&SerialLogMod);
 
-pub unsafe fn inb(port: u16) -> u8 {
-    let val: u8;
-    unsafe { asm!("in al, dx", out("al") val, in("dx") port) };
-    val
-}
+const COM1: u16 = 0x3F8;
 
-pub fn init_serial() {
-    unsafe {
-        outb(COM1 + 1, 0x00); // Disable interrupts
-        outb(COM1 + 3, 0x80); // Enable DLAB (set baud rate divisor)
-        outb(COM1 + 0, 0x03); // Set divisor to 3 (lo byte) 38400 baud
-        outb(COM1 + 1, 0x00); //                  (hi byte)
-        outb(COM1 + 3, 0x03); // 8 bits, no parity, one stop bit
-        outb(COM1 + 2, 0xC7); // Enable FIFO, clear them, with 14-byte threshold
-        outb(COM1 + 4, 0x0B); // IRQs enabled, RTS/DSR set
-    }
-}
+pub struct SerialLogMod;
 
-pub unsafe fn serial_is_transmit_ready() -> bool {
-    unsafe { inb(COM1 + 5) & 0x20 != 0 }
-}
+impl Module for SerialLogMod {
+    fn init(
+        &self,
+        _loaded_modules: &[kernel_lib::ModuleHandle],
+        _boot_infos: &mut kernel_lib::BootInfo,
+    ) -> Result<kernel_lib::InitOk<'_>, kernel_lib::InitErr<'_>> {
+        SerialLogMod::outb(COM1 + 1, 0x00); // Disable interrupts
+        SerialLogMod::outb(COM1 + 3, 0x80); // Enable DLAB (set baud rate divisor)
+        SerialLogMod::outb(COM1 + 0, 0x03); // Set divisor to 3 (lo byte) 38400 baud
+        SerialLogMod::outb(COM1 + 1, 0x00); //                  (hi byte)
+        SerialLogMod::outb(COM1 + 3, 0x03); // 8 bits, no parity, one stop bit
+        SerialLogMod::outb(COM1 + 2, 0xC7); // Enable FIFO, clear them, with 14-byte threshold
+        SerialLogMod::outb(COM1 + 4, 0x0B); // IRQs enabled, RTS/DSR set
+        //
+        let b: Box<dyn SerialLog> = Box::new(SerialLogMod);
+        let b = ManuallyDrop::new(b);
+        let raw: *const dyn SerialLog = &**b;
+        let raw: *mut dyn SerialLog = raw as *mut dyn SerialLog;
+        let (data_ptr, vtable_ptr): (*mut (), *mut ()) = unsafe { transmute(raw) };
 
-unsafe fn serial_write_byte(byte: u8) {
-    unsafe {
-        while !serial_is_transmit_ready() {}
-        outb(COM1, byte);
-    }
-}
-
-pub unsafe fn serial_write_str(s: &str) {
-    for b in s.bytes() {
-        unsafe { serial_write_byte(b) };
-    }
-}
-
-pub struct SerialPort {
-    port: u16,
-}
-
-impl SerialPort {
-    pub const fn new(port: u16) -> Self {
-        SerialPort { port }
+        Ok(InitOk {
+            interface: (data_ptr as usize, vtable_ptr as usize),
+            rerun: None,
+        })
     }
 
-    pub unsafe fn init(&self) {
-        unsafe {
-            outb(self.port + 1, 0x00);
-            outb(self.port + 3, 0x80);
-            outb(self.port + 0, 0x03);
-            outb(self.port + 1, 0x00);
-            outb(self.port + 3, 0x03);
-            outb(self.port + 2, 0xC7);
-            outb(self.port + 4, 0x0B);
-        }
+    fn save_state(&self) -> Box<dyn core::any::Any> {
+        Box::new(())
     }
 
-    fn is_transmit_ready(&self) -> bool {
-        unsafe { inb(self.port + 5) & 0x20 != 0 }
-    }
-
-    fn write_byte(&self, byte: u8) {
-        while !self.is_transmit_ready() {}
-        unsafe { outb(self.port, byte) }
-    }
-}
-
-use core::fmt::Write;
-
-impl Write for &SerialPort {
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        for byte in s.bytes() {
-            self.write_byte(byte);
-        }
+    fn restore_state(
+        &self,
+        _state: Box<dyn core::any::Any>,
+    ) -> Result<(), Box<dyn core::fmt::Debug>> {
         Ok(())
     }
+
+    fn stop(&self) {}
 }
 
-use core::fmt::Arguments;
+impl SerialLogMod {
+    pub fn outb(port: u16, val: u8) {
+        unsafe {
+            asm!("out dx, al", in("dx") port, in ("al") val);
+        }
+    }
 
-static SERIAL1: SerialPort = SerialPort::new(0x3F8);
+    pub fn inb(port: u16) -> u8 {
+        let val: u8;
+        unsafe { asm!("in al, dx", out("al") val, in("dx") port) };
+        val
+    }
 
-#[doc(hidden)]
-pub fn _print(args: Arguments) {
-    let mut writer = &SERIAL1;
-    let _ = writer.write_fmt(args);
+    pub fn is_transmit_ready() -> bool {
+        Self::inb(COM1 + 5) & 0x20 != 0
+    }
+
+    pub fn write_byte(byte: u8) {
+        while !Self::is_transmit_ready() {}
+        Self::outb(COM1, byte);
+    }
 }
 
-#[macro_export]
-macro_rules! serial_print {
-    ($($arg:tt)*) => {
-        kernel::log::serial::_print(format_args!($($arg)*));
-    };
+impl SerialLog for SerialLogMod {
+    fn log_str(&self, s: &str) {
+        for b in s.as_bytes() {
+            Self::write_byte(*b);
+        }
+    }
 }
-
-#[macro_export]
-macro_rules! serial_println {
-    () => {
-        $crate::serial_print!("\n");
-    };
-    ($fmt:expr) => {
-        $crate::serial_print!(concat!($fmt, "\n"));
-    };
-    ($fmt:expr, $($arg:tt)*) => {
-        $crate::serial_print!(concat!($fmt, "\n"), $($arg)*);
-    };
-}
-

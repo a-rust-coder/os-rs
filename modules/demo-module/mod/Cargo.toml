@@ -6,3 +6,5 @@ edition = "2024"
 [dependencies]
 demo-module-lib = { path = "../lib/" }
 kernel-lib = { path = "../../../kernel-lib/" }
+serial-log-lib = { path = "../../serial-log/lib/" }
+kernel-proc-macros = { path = "../../../kernel-proc-macros/" }

@@ -1,8 +1,5 @@
 use core::arch::asm;
 
-use crate as kernel;
-use crate::serial_println;
-
 #[repr(C)]
 #[derive(Debug)]
 pub struct InterruptStackFrame {
@@ -58,30 +55,30 @@ struct IdtPointer {
 static mut IDT: [IdtEntry; 256] = [IdtEntry::missing(); 256];
 
 extern "x86-interrupt" fn handler_pf(stack: &mut InterruptStackFrame, error_code: usize) {
-    serial_println!("EXCEPTION: Page Fault");
-    serial_println!("{}\n{:#?}", error_code, stack);
-    serial_println!("Page: {}", read_cr2());
+    // serial_println!("EXCEPTION: Page Fault");
+    // serial_println!("{}\n{:#?}", error_code, stack);
+    // serial_println!("Page: {}", read_cr2());
 
     loop {}
 }
 
 extern "x86-interrupt" fn handler_gp(_stack: &mut InterruptStackFrame, _error_code: usize) {
-    serial_println!("EXCEPTION: General Protection Fault");
+    // serial_println!("EXCEPTION: General Protection Fault");
     loop {}
 }
 
 extern "x86-interrupt" fn handler_df(_stack: &mut InterruptStackFrame, _error_code: usize) {
-    serial_println!("EXCEPTION: Double Fault");
+    // serial_println!("EXCEPTION: Double Fault");
     loop {}
 }
 
 extern "x86-interrupt" fn handler_ud(_stack: &mut InterruptStackFrame) {
-    serial_println!("EXCEPTION: Undefined Instruction");
+    // serial_println!("EXCEPTION: Undefined Instruction");
     loop {}
 }
 
 extern "x86-interrupt" fn handler_default(_stack: &mut InterruptStackFrame) {
-    serial_println!("EXCEPTION: Interrupt");
+    // serial_println!("EXCEPTION: Interrupt");
     loop {}
 }
 
@@ -108,7 +105,7 @@ pub fn init_idt() {
         asm!("lidt [{}]", in(reg) &idt_ptr, options(readonly, nostack));
     }
 
-    serial_println!("IDT installée !");
+    // serial_println!("IDT installée !");
 }
 
 fn read_cr2() -> usize {

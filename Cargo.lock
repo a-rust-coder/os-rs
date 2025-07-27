@@ -173,6 +173,8 @@ version = "0.1.0"
 dependencies = [
  "demo-module-lib",
  "kernel-lib",
+ "kernel-proc-macros",
+ "serial-log-lib",
 ]
 
 [[package]]

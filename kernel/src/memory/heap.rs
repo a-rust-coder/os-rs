@@ -1,6 +1,5 @@
 use core::{
     alloc::{AllocError, Allocator},
-    num::NonZero,
     ops::Deref,
     ptr::{self, NonNull},
     usize,
@@ -8,8 +7,8 @@ use core::{
 
 use bootloader_api::{BootInfo, info::MemoryRegionKind};
 
-use crate::{memory::page_table::FORBID_EXECUTION, serial_println};
-use crate::{self as kernel, common::VirtAddress, memory::page_table::remap_flags};
+use crate::memory::page_table::FORBID_EXECUTION;
+use crate::{common::VirtAddress, memory::page_table::remap_flags};
 
 #[derive(Debug, Clone, Copy)]
 pub struct FreeListHeapAllocator(pub NonNull<[u8]>);
@@ -19,46 +18,6 @@ impl FreeListHeapAllocator {
         let second = UnusedRegion::new(start + 24, size - 24, None);
         UnusedRegion::new(start, 0, Some(second));
         Self(NonNull::new(ptr::slice_from_raw_parts_mut(start as *mut u8, size)).unwrap())
-    }
-
-    pub fn show_state(&self) {
-        serial_println!("Showing allocator (FreeListHeapAllocator) memory state:");
-        serial_println!("Size: {}", self.0.len());
-        serial_println!("Address: {}", self.0.addr());
-
-        let infos = UnusedRegion::read(self.0.addr().into());
-        let mut current_unused_region = match infos.next() {
-            None => {
-                serial_println!("-- Full --");
-                return;
-            }
-            Some(v) => v,
-        };
-
-        loop {
-            serial_println!("------------ UNUSED REGION -------------");
-            serial_println!(
-                "Position: {}",
-                current_unused_region.address
-                    - <NonZero<usize> as Into<usize>>::into(self.0.addr())
-            );
-            serial_println!("Size: {}", current_unused_region.size());
-            serial_println!(
-                "Next position: {}",
-                (current_unused_region.infos.next as isize)
-                    - (<NonZero<usize> as Into<usize>>::into(self.0.addr()) as isize)
-            );
-            serial_println!("Next address: {}", current_unused_region.infos.next);
-            serial_println!();
-
-            match current_unused_region.next() {
-                None => {
-                    serial_println!("END OF UNUSED REGIONS");
-                    return;
-                }
-                Some(v) => current_unused_region = v,
-            }
-        }
     }
 }
 

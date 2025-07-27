@@ -2,20 +2,26 @@
 #![no_main]
 #![feature(allocator_api, alloc_layout_extra)]
 
-use core::{alloc::Layout, fmt::Write, mem::{transmute, MaybeUninit}, panic::PanicInfo};
+use core::{
+    alloc::Layout,
+    fmt::Write,
+    mem::{MaybeUninit, transmute},
+    panic::PanicInfo,
+};
 
-use alloc::{alloc::Allocator, boxed::Box, vec::Vec};
+use alloc::alloc::Allocator;
 use bootloader_api::{BootInfo, BootloaderConfig, entry_point};
 use demo_module_lib::DemoModule;
 use kernel::{
     idt::init_idt,
-    log::{display::init_framebuffer_writer, serial::init_serial, Logger},
+    log::display::init_framebuffer_writer,
     memory::{heap::init_heap, init_global_allocator},
-    ramdisk::{elf, SimpleInitFs},
-    serial_println,
+    modules::serial_log,
+    ramdisk::{SimpleInitFs, elf},
 };
-use kernel_lib::{AllocatorWrapper, Module, ModuleWrapper};
+use kernel_lib::{AllocatorWrapper, Module, ModuleHandle, ModuleWrapper};
 use kernel_proc_macros::log;
+use serial_log_lib::SerialLog;
 
 extern crate alloc;
 
@@ -27,17 +33,23 @@ const CONFIG: BootloaderConfig = {
 };
 
 fn start(boot_info: &mut BootInfo) -> ! {
-    init_serial();
+    let serial_log: &dyn SerialLog =
+        unsafe { transmute(serial_log::MODULE.0.init(&[], boot_info).unwrap().interface) };
+    let serial_log_handle = ModuleHandle {
+        interface: unsafe { transmute(serial_log) },
+        module_name: serial_log::MODULE_NAME,
+        interface_name: serial_log::INTERFACE_NAME,
+    };
+
+    let mut logger = serial_log;
+
+    log!("Hello!");
+
     init_idt();
     let allocator = init_heap(boot_info);
     init_global_allocator(allocator);
     let mut writer = init_framebuffer_writer(boot_info);
     writer.erase();
-    let mut logger = Logger::new(true, true, Some(writer));
-    log!("Hello {}", "world!");
-    logger.log_text("Hello world!");
-    logger.log_ok("Log");
-    logger.log_err("666");
 
     let (ramdisk_start, ramdisk_len) = (
         boot_info.ramdisk_addr.into_option().unwrap() as usize,
@@ -48,13 +60,6 @@ fn start(boot_info: &mut BootInfo) -> ! {
     let fs = SimpleInitFs::new(fs_bytes);
 
     for file in fs.iter() {
-        serial_println!(
-            "Found file: {}, size: {}, content: {:?}",
-            file.name,
-            file.data.len(),
-            str::from_utf8(file.data)
-        );
-
         let handle = elf::load_elf(
             file.data,
             allocator
@@ -63,7 +68,6 @@ fn start(boot_info: &mut BootInfo) -> ! {
                 .addr()
                 .into(),
         );
-        logger.log_ok("Loading ELF");
 
         // init GLOBAL_ALLOCATOR
         let allocator_wrap = AllocatorWrapper(MaybeUninit::new(&allocator));
@@ -71,10 +75,10 @@ fn start(boot_info: &mut BootInfo) -> ! {
         unsafe { *(glob_alloc_ptr as *mut AllocatorWrapper) = allocator_wrap };
 
         // init PANIC_HANDLER
-        let panic_handler: fn(&PanicInfo) -> ! = panic_fn;
+        let panic_handler: fn(&PanicInfo) -> ! = panic;
         let panic_handler = MaybeUninit::new(panic_handler);
         let panic_handler_ptr = handle.get_symbol("PANIC_HANDLER");
-        unsafe { *(panic_handler_ptr as *mut MaybeUninit<fn(&PanicInfo) -> ! >) = panic_handler };
+        unsafe { *(panic_handler_ptr as *mut MaybeUninit<fn(&PanicInfo) -> !>) = panic_handler };
 
         // get module
         let module_ptr = handle.get_symbol("MODULE");
@@ -82,9 +86,9 @@ fn start(boot_info: &mut BootInfo) -> ! {
         let module = module.0;
 
         // init module
-        let demo_module = module.init(&[], boot_info).unwrap();
+        let demo_module = module.init(&[serial_log_handle], boot_info).unwrap();
         let demo_module: &dyn DemoModule = unsafe { transmute(demo_module.interface) };
-        serial_println!("{}", demo_module.update_number(1));
+        log!("{}", demo_module.update_number(1));
     }
 
     loop {}
@@ -94,10 +98,5 @@ entry_point!(start, config = &CONFIG);
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
-    panic_fn(info);
-}
-
-fn panic_fn(info: &PanicInfo) -> ! {
-    serial_println!("{:#?}", info);
     loop {}
 }

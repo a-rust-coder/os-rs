@@ -2,12 +2,14 @@
 #![no_main]
 
 use core::{
-    cell::{Cell, UnsafeCell}, mem::{transmute, ManuallyDrop, MaybeUninit}, panic::PanicInfo
+    cell::{Cell, UnsafeCell}, fmt::Write, mem::{transmute, ManuallyDrop, MaybeUninit}, panic::PanicInfo
 };
 
 use alloc::boxed::Box;
 use demo_module_lib::DemoModule;
-use kernel_lib::{mutex::Mutex, AllocatorWrapper, InitOk, Module, ModuleWrapper};
+use kernel_lib::{AllocatorWrapper, InitOk, Module, ModuleWrapper, mutex::Mutex};
+use kernel_proc_macros::log;
+use serial_log_lib::SerialLog;
 
 extern crate alloc;
 
@@ -32,17 +34,36 @@ pub static INTERFACE_NAME: &str = demo_module_lib::INTERFACE_NAME;
 #[unsafe(no_mangle)]
 pub static MODULE: ModuleWrapper = ModuleWrapper(&INITIALIZER);
 
-pub static INITIALIZER: DemoModuleMod = DemoModuleMod(Mutex::new(1));
+pub static INITIALIZER: DemoModuleMod = DemoModuleMod {
+    n: Mutex::new(1),
+    log: MaybeUninit::uninit(),
+};
 
-struct DemoModuleMod(Mutex<usize>);
+pub struct DemoModuleMod<'a> {
+    n: Mutex<usize>,
+    log: MaybeUninit<&'a dyn SerialLog>,
+}
 
-impl Module for DemoModuleMod {
+unsafe impl Sync for DemoModuleMod<'_> {}
+
+impl Module for DemoModuleMod<'_> {
     fn init(
         &self,
-        _loaded_modules: &[kernel_lib::ModuleHandle],
+        loaded_modules: &[kernel_lib::ModuleHandle],
         _boot_infos: &mut kernel_lib::BootInfo,
     ) -> Result<kernel_lib::InitOk<'_>, kernel_lib::InitErr<'_>> {
-        let b: Box<dyn DemoModule> = Box::new(DemoModuleMod(Mutex::new(1)));
+        let mut log: MaybeUninit<&dyn SerialLog> = MaybeUninit::uninit();
+
+        for m in loaded_modules {
+            if m.interface_name == "serial-log" {
+                log = MaybeUninit::new(unsafe { transmute(m.interface) });
+            }
+        }
+
+        let b: Box<dyn DemoModule> = Box::new(DemoModuleMod {
+            n: Mutex::new(1),
+            log,
+        });
         let b = ManuallyDrop::new(b);
         let raw: *const dyn DemoModule = &**b;
         let raw: *mut dyn DemoModule = raw as *mut dyn DemoModule;
@@ -55,7 +76,7 @@ impl Module for DemoModuleMod {
     }
 
     fn save_state(&self) -> alloc::boxed::Box<dyn core::any::Any> {
-        Box::new(*self.0.lock())
+        Box::new(*self.n.lock())
     }
 
     fn restore_state(
@@ -64,7 +85,7 @@ impl Module for DemoModuleMod {
     ) -> Result<(), Box<dyn core::fmt::Debug>> {
         match state.downcast::<usize>() {
             Ok(v) => {
-                *self.0.lock() = *v;
+                *self.n.lock() = *v;
                 return Ok(());
             }
             Err(_) => {
@@ -76,9 +97,11 @@ impl Module for DemoModuleMod {
     fn stop(&self) {}
 }
 
-impl DemoModule for DemoModuleMod {
+impl DemoModule for DemoModuleMod<'_> {
     fn update_number(&self, number: usize) -> usize {
-        *self.0.lock() + number
+        let mut logger = unsafe { self.log.assume_init() };
+        log!("Number: {}", number);
+        *self.n.lock() + number
     }
 }
 
