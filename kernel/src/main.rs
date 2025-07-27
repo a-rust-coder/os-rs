@@ -33,6 +33,7 @@ const CONFIG: BootloaderConfig = {
 };
 
 fn start(boot_info: &mut BootInfo) -> ! {
+    // Init module serial-log (kernel)
     let serial_log: &dyn SerialLog =
         unsafe { transmute(serial_log::MODULE.0.init(&[], boot_info).unwrap().interface) };
     let serial_log_handle = ModuleHandle {
@@ -40,14 +41,15 @@ fn start(boot_info: &mut BootInfo) -> ! {
         module_name: serial_log::MODULE_NAME,
         interface_name: serial_log::INTERFACE_NAME,
     };
-
     let mut logger = serial_log;
 
-    log!("Hello!");
+    log!("\n\n\n\n");
+    log!("Module serial-log OK (kernel)");
 
     init_idt();
     let allocator = init_heap(boot_info);
     init_global_allocator(allocator);
+
     let mut writer = init_framebuffer_writer(boot_info);
     writer.erase();
 

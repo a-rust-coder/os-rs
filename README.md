@@ -1,7 +1,14 @@
-# ```os-rs```
+# ```QUIRM```
 
-One day, I will add the doc. Maybe.
+
+**QUantum Interface for Regular Modularity**
+
+
+I'll add the doc. One day. Maybe.
+
 
 ## WARNING
 
-Still work in progress, the module API may change, and some very unsafe code will be removed. This is a proof if concept.
+
+This code is not finished, far from it. The API may change, some very unsafe code will be removed.
+More modules will come. But the core concept is here.
