@@ -50,7 +50,7 @@ impl Module for DemoModuleMod<'_> {
     fn init(
         &self,
         loaded_modules: &[kernel_lib::ModuleHandle],
-        _boot_infos: &mut kernel_lib::BootInfo,
+        _boot_infos: kernel_lib::BootInfo,
     ) -> Result<kernel_lib::InitOk<'_>, kernel_lib::InitErr<'_>> {
         let mut log: MaybeUninit<&dyn SerialLog> = MaybeUninit::uninit();
 

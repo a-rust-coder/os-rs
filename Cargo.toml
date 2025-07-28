@@ -1,18 +1,19 @@
 [package]
-name = "os"
+name = "os-builder"
 version = "0.1.0"
 edition = "2024"
 
-[build-dependencies]
-bootloader = "0.11.10"
-kernel = { path = "kernel", artifact = "bin", target = "x86_64-unknown-none" }
-demo-module-mod = { path = "modules/demo-module/mod", artifact = "bin", target = "x86_64-unknown-none" }
-
 [dependencies]
-ovmf-prebuilt = "0.2.2"
+
+[build-dependencies]
+kernel = { path = "./kernel/", artifact = "bin", target = "x86_64-unknown-none" }
+bootloader-x86_64-uefi = { path = "./bootloader/x86_64/uefi/", artifact = "bin", target = "x86_64-unknown-uefi" }
 
 [workspace]
+resolver = "3"
 members = [
+	"bootloader-lib", 
+	"bootloader/x86_64/uefi",
 	"kernel", 
 	"kernel-lib", 
 	"kernel-proc-macros", 

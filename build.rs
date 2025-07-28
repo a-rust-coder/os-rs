@@ -1,44 +1,56 @@
-use std::ffi::OsString;
-use std::fs::{self, File};
-use std::io::{BufWriter, Write};
-use std::path::{Path, PathBuf};
+use std::fs;
+use std::path::PathBuf;
+use std::process::Command;
 
 fn main() {
-    let out_dir = PathBuf::from("./target/bootable/");
-    let kernel = PathBuf::from(std::env::var_os("CARGO_BIN_FILE_KERNEL_kernel").unwrap());
-    let test_modules = std::env::var_os("CARGO_BIN_FILE_DEMO_MODULE_MOD_demo-module-mod").unwrap();
+    let bootloader_x86_64_uefi =
+        std::env::var("CARGO_BIN_FILE_BOOTLOADER_X86_64_UEFI_bootloader-x86_64-uefi").unwrap();
+    let out_dir = PathBuf::from("target");
+    let img_path = out_dir.join("boot/x86_64/uefi.img");
 
-    let out = File::create("ramdisk.img").unwrap();
-    let mut writer = BufWriter::new(out);
 
-    let paths: Vec<(OsString, &str)> = vec![
-        (test_modules, "test.elf"),
-    ];
-    for path in paths {
-        let data = fs::read(path.0).unwrap();
-        write_entry(&mut writer, path.1, &data).unwrap();
+    fs::create_dir_all(out_dir.join("boot/x86_64")).unwrap();
+    let _ = fs::remove_file(&img_path);
+
+    let status = Command::new("dd")
+        .args(&[
+            "if=/dev/zero",
+            &format!("of={}", img_path.to_str().unwrap()),
+            "bs=1M",
+            "count=64",
+        ])
+        .status()
+        .unwrap();
+    if !status.success() {
+        panic!();
     }
 
-    writer.flush().unwrap();
-    drop(writer);
-
-    let uefi_path = out_dir.join("uefi.img");
-    bootloader::UefiBoot::new(&kernel)
-        .set_ramdisk(Path::new("./ramdisk.img"))
-        .create_disk_image(&uefi_path)
+    let status = Command::new("mkfs.vfat")
+        .args(&["-F", "32", img_path.to_str().unwrap()])
+        .status()
         .unwrap();
+    if !status.success() {
+        panic!();
+    }
 
-    let bios_path = out_dir.join("bios.img");
-    bootloader::BiosBoot::new(&kernel)
-        .set_ramdisk(Path::new("./ramdisk.img"))
-        .create_disk_image(&bios_path)
+    Command::new("mmd")
+        .args(&["-i", img_path.to_str().unwrap(), "::/EFI"])
+        .status()
         .unwrap();
-}
-
-fn write_entry<W: Write>(writer: &mut W, name: &str, data: &[u8]) -> std::io::Result<()> {
-    writer.write_all(&(name.len() as u64).to_le_bytes())?;
-    writer.write_all(name.as_bytes())?;
-    writer.write_all(&(data.len() as u64).to_le_bytes())?;
-    writer.write_all(data)?;
-    Ok(())
+    Command::new("mmd")
+        .args(&["-i", img_path.to_str().unwrap(), "::/EFI/BOOT"])
+        .status()
+        .unwrap();
+    let status = Command::new("mcopy")
+        .args(&[
+            "-i",
+            img_path.to_str().unwrap(),
+            &bootloader_x86_64_uefi,
+            "::/EFI/BOOT/BOOTX64.EFI",
+        ])
+        .status()
+        .unwrap();
+    if !status.success() {
+        panic!();
+    }
 }

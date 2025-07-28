@@ -1,6 +1,6 @@
 use core::{fmt::Write, num::NonZero, ptr::NonNull};
 
-use bootloader_api::{info::PixelFormat, BootInfo};
+use kernel_lib::{boot_info::PixelFormat, BootInfo};
 
 use crate::log::font::FONT8X8_BASIC;
 
@@ -50,11 +50,10 @@ impl FrameBufferWriter {
                     green_position,
                     blue_position,
                 } => {
-                    *buffer.add(offset + red_position as usize) = color.0;
-                    *buffer.add(offset + green_position as usize) = color.1;
-                    *buffer.add(offset + blue_position as usize) = color.2;
+                    *buffer.add(offset + red_position) = color.0;
+                    *buffer.add(offset + green_position) = color.1;
+                    *buffer.add(offset + blue_position) = color.2;
                 }
-                other => panic!("Unknown and uncatchable framebuffer format: {:?}", other),
             }
         }
     }
@@ -114,20 +113,18 @@ impl Write for FrameBufferWriter {
     }
 }
 
-pub fn init_framebuffer_writer(boot_info: &mut BootInfo) -> FrameBufferWriter {
-    let fb = boot_info.framebuffer.as_mut().unwrap();
-    let info = fb.info();
-
+pub fn init_framebuffer_writer(boot_info: BootInfo) -> FrameBufferWriter {
+    let fb = boot_info.frame_buffer.unwrap();
     FrameBufferWriter {
-        buffer: NonNull::<[u8]>::new(fb.buffer_mut()).unwrap(),
-        width: info.width,
-        height: info.height,
-        stride: info.stride,
-        bytes_per_pixel: info.bytes_per_pixel,
+        buffer: fb.buffer,
+        width: fb.width,
+        height: fb.height,
+        stride: fb.stride,
+        bytes_per_pixel: fb.bytes_per_pixel,
         x: 0,
         y: 0,
         fg_color: Color(255, 255, 255),
         bg_color: Color(0, 0, 0),
-        color_format: info.pixel_format,
+        color_format: fb.pixel_format,
     }
 }

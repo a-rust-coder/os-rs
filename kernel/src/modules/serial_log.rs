@@ -20,7 +20,7 @@ impl Module for SerialLogMod {
     fn init(
         &self,
         _loaded_modules: &[kernel_lib::ModuleHandle],
-        _boot_infos: &mut kernel_lib::BootInfo,
+        _boot_infos: kernel_lib::BootInfo,
     ) -> Result<kernel_lib::InitOk<'_>, kernel_lib::InitErr<'_>> {
         SerialLogMod::outb(COM1 + 1, 0x00); // Disable interrupts
         SerialLogMod::outb(COM1 + 3, 0x80); // Enable DLAB (set baud rate divisor)

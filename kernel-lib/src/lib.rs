@@ -5,6 +5,9 @@ extern crate alloc;
 
 pub mod allocator;
 pub mod mutex;
+pub mod boot_info;
+
+pub use boot_info::BootInfo;
 
 use core::{any::Any, fmt::Debug};
 
@@ -15,7 +18,7 @@ pub trait Module {
     fn init(
         &self,
         loaded_modules: &[ModuleHandle],
-        boot_infos: &mut BootInfo,
+        boot_infos: BootInfo,
     ) -> Result<InitOk<'_>, InitErr<'_>>;
 
     fn save_state(&self) -> Box<dyn Any>;
@@ -51,8 +54,6 @@ pub enum Event<'a> {
     And(Box<Event<'a>>, Box<Event<'a>>),
     Or(Box<Event<'a>>, Box<Event<'a>>),
 }
-
-pub use bootloader_api::BootInfo;
 
 #[derive(Debug)]
 pub enum InitErr<'a> {

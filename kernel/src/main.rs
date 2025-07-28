@@ -10,7 +10,6 @@ use core::{
 };
 
 use alloc::alloc::Allocator;
-use bootloader_api::{BootInfo, BootloaderConfig, entry_point};
 use demo_module_lib::DemoModule;
 use kernel::{
     idt::init_idt,
@@ -19,20 +18,13 @@ use kernel::{
     modules::serial_log,
     ramdisk::{SimpleInitFs, elf},
 };
-use kernel_lib::{AllocatorWrapper, Module, ModuleHandle, ModuleWrapper};
+use kernel_lib::{AllocatorWrapper, BootInfo, Module, ModuleHandle, ModuleWrapper};
 use kernel_proc_macros::log;
 use serial_log_lib::SerialLog;
 
 extern crate alloc;
 
-const CONFIG: BootloaderConfig = {
-    let mut c = BootloaderConfig::new_default();
-    c.mappings.page_table_recursive = None;
-    c.mappings.physical_memory = Some(bootloader_api::config::Mapping::Dynamic);
-    c
-};
-
-fn start(boot_info: &mut BootInfo) -> ! {
+unsafe extern "C" fn _start(boot_info: BootInfo) -> ! {
     // Init module serial-log (kernel)
     let serial_log: &dyn SerialLog =
         unsafe { transmute(serial_log::MODULE.0.init(&[], boot_info).unwrap().interface) };
@@ -45,17 +37,18 @@ fn start(boot_info: &mut BootInfo) -> ! {
 
     log!("\n\n\n\n");
     log!("Module serial-log OK (kernel)");
+    log!("Hello world!");
 
     init_idt();
-    let allocator = init_heap(boot_info);
+    let allocator = init_heap(&boot_info);
     init_global_allocator(allocator);
 
     let mut writer = init_framebuffer_writer(boot_info);
     writer.erase();
 
     let (ramdisk_start, ramdisk_len) = (
-        boot_info.ramdisk_addr.into_option().unwrap() as usize,
-        boot_info.ramdisk_len as usize,
+        boot_info.ramdisk_memory.unwrap().as_ptr() as *mut u8 as usize,
+        boot_info.ramdisk_memory.unwrap().len(),
     );
     let fs_bytes = unsafe { core::slice::from_raw_parts(ramdisk_start as *mut u8, ramdisk_len) };
 
@@ -95,8 +88,6 @@ fn start(boot_info: &mut BootInfo) -> ! {
 
     loop {}
 }
-
-entry_point!(start, config = &CONFIG);
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
