@@ -1,0 +1,9 @@
+[target.x86_64-unknown-uefi]
+linker = "rust-lld"
+rustflags = [
+    "-C", "link-arg=-Tlinker.ld",
+    "-C", "link-arg=--subsystem=efi_application",
+    "-C", "link-arg=--image-base=0x100000",
+    "-C", "link-arg=--entry=efi_main",
+    "-C", "link-arg=--emit-relocs",
+]

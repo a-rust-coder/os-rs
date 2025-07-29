@@ -43,17 +43,18 @@
                 }
               ))
               qemu
-              mtools
+							mtools
             ];
 
             shellHook = ''
+							rm -rf target/ovmf
 							mkdir -p target/ovmf
 							cp ${pkgs.OVMF.firmware} target/ovmf/code.fd
 							${lib.getExe python313Packages.ovmfvartool} generate-blank target/ovmf/vars.fd
-              export ROOTD=$(pwd)
-              export SHELL="nu"
-              mkdir -p target/img
-              $SHELL
+							export ROOTD=$(pwd)
+							export SHELL="nu"
+							mkdir -p target/img
+							$SHELL
             '';
           };
       }
