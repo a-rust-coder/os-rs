@@ -1,6 +1,5 @@
 use core::{
     alloc::{AllocError, Allocator},
-    ops::Deref,
     ptr::{self, NonNull},
     usize,
 };

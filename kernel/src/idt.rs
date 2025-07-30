@@ -54,7 +54,7 @@ struct IdtPointer {
 // IDT statique en mémoire
 static mut IDT: [IdtEntry; 256] = [IdtEntry::missing(); 256];
 
-extern "x86-interrupt" fn handler_pf(stack: &mut InterruptStackFrame, error_code: usize) {
+extern "x86-interrupt" fn handler_pf(_stack: &mut InterruptStackFrame, _error_code: usize) {
     // serial_println!("EXCEPTION: Page Fault");
     // serial_println!("{}\n{:#?}", error_code, stack);
     // serial_println!("Page: {}", read_cr2());
@@ -90,7 +90,6 @@ pub fn init_idt() {
         IDT[13] = IdtEntry::new(handler_gp as usize); // #GP
         IDT[14] = IdtEntry::new(handler_pf as usize); // #PF
 
-        // Par sécurité, on remplit les autres
         for i in 0..256 {
             if IDT[i].offset_low == 0 && IDT[i].offset_middle == 0 && IDT[i].offset_high == 0 {
                 IDT[i] = IdtEntry::new(handler_default as usize);
@@ -106,12 +105,4 @@ pub fn init_idt() {
     }
 
     // serial_println!("IDT installée !");
-}
-
-fn read_cr2() -> usize {
-    let val: usize;
-    unsafe {
-        asm!("mov {}, cr2", out(reg) val);
-    }
-    val
 }

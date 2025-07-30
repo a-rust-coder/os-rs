@@ -1,8 +1,11 @@
+//! TODO: make it FFI-safe (no [u8])
+
 #![no_std]
 
 use core::ptr::NonNull;
 
 #[derive(Debug, Clone, Copy)]
+#[repr(C)]
 pub struct BootInfo {
     pub kernel_memory: NonNull<[u8]>,
     pub ramdisk_memory: Option<NonNull<[u8]>>,
@@ -13,12 +16,14 @@ pub struct BootInfo {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[repr(C)]
 pub struct MemoryRegion {
     pub memory: NonNull<[u8]>,
     pub kind: MemoryRegionKind,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[repr(C)]
 pub enum MemoryRegionKind {
     Kernel,
     Usable,
@@ -26,6 +31,7 @@ pub enum MemoryRegionKind {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[repr(C)]
 pub enum PixelFormat {
     Rgb,
     Bgr,
@@ -38,6 +44,7 @@ pub enum PixelFormat {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[repr(C)]
 pub struct FrameBuffer {
     pub pixel_format: PixelFormat,
     pub buffer: NonNull<[u8]>,

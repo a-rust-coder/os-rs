@@ -18,7 +18,7 @@ use kernel::{
     modules::serial_log,
     ramdisk::{SimpleInitFs, elf},
 };
-use kernel_lib::{AllocatorWrapper, BootInfo, Module, ModuleHandle, ModuleWrapper};
+use kernel_lib::{AllocatorWrapper, BootInfo, ModuleHandle, ModuleWrapper};
 use kernel_proc_macros::log;
 use serial_log_lib::SerialLog;
 
@@ -90,6 +90,6 @@ unsafe extern "C" fn _start(boot_info: BootInfo) -> ! {
 }
 
 #[panic_handler]
-fn panic(info: &core::panic::PanicInfo) -> ! {
+fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
 }
