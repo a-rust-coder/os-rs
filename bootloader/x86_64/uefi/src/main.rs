@@ -10,7 +10,7 @@ pub extern "efiapi" fn efi_main(
     _image_handle: usize,
     _system_table: usize,
 ) -> EfiSatus {
-    loop {}
+    EFI_SUCCESS
 }
 
 #[panic_handler]
