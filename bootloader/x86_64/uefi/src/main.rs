@@ -2,7 +2,6 @@
 #![no_main]
 
 type EfiSatus = u64;
-
 const EFI_SUCCESS: EfiSatus = 0;
 
 #[unsafe(no_mangle)]
